@@ -1345,17 +1345,27 @@ extern int net_preopen(void)
   int trueopt = 1;
 #endif
 
-#if !defined(IP_HDRINCL) && defined(IP_TOS) && defined(IP_TTL)
-  sendsock4_icmp = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-  sendsock4_udp = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
+// Darwin and FreeBSD systems allow DGRAM based ICMP sockets to be opened
+// without requiring root privileges
+#if defined(__APPLE__) || defined(__FreeBSD__)
+#define MTR_SOCK_TYPE SOCK_DGRAM
+#define MTR_IPPROTO_TYPE IPPROTO_ICMP
 #else
-  sendsock4 = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+#define MTR_SOCK_TYPE SOCK_RAW
+#define MTR_IPPROTO_TYPE IPPROTO_RAW
+#endif
+
+#if !defined(IP_HDRINCL) && defined(IP_TOS) && defined(IP_TTL)
+  sendsock4_icmp = socket(AF_INET, MTR_SOCK_TYPE, IPPROTO_ICMP);
+  sendsock4_udp = socket(AF_INET, MTR_SOCK_TYPE, IPPROTO_UDP);
+#else
+  sendsock4 = socket(AF_INET, MTR_SOCK_TYPE, MTR_IPPROTO_TYPE);
 #endif
   if (sendsock4 < 0) 
     return -1;
 #ifdef ENABLE_IPV6
-  sendsock6_icmp = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
-  sendsock6_udp = socket(AF_INET6, SOCK_RAW, IPPROTO_UDP);
+  sendsock6_icmp = socket(AF_INET6, MTR_SOCK_TYPE, IPPROTO_ICMPV6);
+  sendsock6_udp = socket(AF_INET6, MTR_SOCK_TYPE, IPPROTO_UDP);
 #endif
 
 #ifdef IP_HDRINCL
@@ -1367,12 +1377,12 @@ extern int net_preopen(void)
   }
 #endif /* IP_HDRINCL */
 
-  recvsock4 = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+  recvsock4 = socket(AF_INET, MTR_SOCK_TYPE, MTR_IPPROTO_TYPE);
   if (recvsock4 < 0)
     return -1;
   set_fd_flags(recvsock4);
 #ifdef ENABLE_IPV6
-  recvsock6 = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+  recvsock6 = socket(AF_INET6, MTR_SOCK_TYPE, IPPROTO_ICMPV6);
   if (recvsock6 >= 0)
      set_fd_flags(recvsock6);
 #endif
